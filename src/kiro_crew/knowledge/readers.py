@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from kiro_crew.security import is_sensitive_path
+from kiro_crew.pdf_extract import PDF_MAX_BYTES, PDF_MAX_CHARS, extract_pdf_segments
 
 try:
     import pdfplumber
@@ -137,22 +138,19 @@ class FileReader:
         if pdfplumber is None:
             return _missing_dep('PDF', 'pdfplumber')
         try:
-            with pdfplumber.open(path) as pdf:
-                pages: list[str] = []
-                for page in pdf.pages:
-                    try:
-                        pages.append(page.extract_text() or '')
-                    finally:
-                        # pdfplumber caches the parsed layout on each Page. Release
-                        # it before parsing the next page so large PDFs do not keep
-                        # every page's layout resident until the document closes.
-                        # Page.close() also clears the text-map cache when available;
-                        # pdfplumber 0.10 only exposes flush_cache().
-                        close_page = getattr(page, 'close', None)
-                        if close_page is None:
-                            close_page = page.flush_cache
-                        close_page()
-                return '\n'.join(pages), {'format': 'pdf', 'page_count': len(pages)}
+            with open(path, 'rb') as f:
+                data = f.read(PDF_MAX_BYTES + 1)
+            if len(data) > PDF_MAX_BYTES:
+                return _read_error(ValueError(f'PDF exceeds {PDF_MAX_BYTES} byte limit'))
+            segments, complete, page_count = extract_pdf_segments(
+                data, max_chars=PDF_MAX_CHARS
+            )
+            if not complete:
+                return _read_error(RuntimeError('bounded PDF extraction failed or was truncated'))
+            return '\n'.join(text for _label, text in segments), {
+                'format': 'pdf',
+                'page_count': page_count,
+            }
         except Exception as e:
             return _read_error(e)
 

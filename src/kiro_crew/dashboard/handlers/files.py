@@ -74,6 +74,7 @@ from kiro_crew.dashboard.state import (
     append_and_surface,
 )
 from kiro_crew.doc_blocks import extract_blocks
+from kiro_crew.pdf_extract import PDF_MAX_CHARS, extract_pdf_segments
 from kiro_crew.doc_parser import extract_text
 from kiro_crew.git_worktree_scope import worktree_probe_failure_is_empty_scope
 from kiro_crew.github_runner import validate_provider_executable
@@ -4913,7 +4914,7 @@ _GREP_MAX_DIRS_VISITED = 20_000
 #: length limit, so its extraction has no memory ceiling this process can
 #: enforce. Both engines then skip a PDF as binary. Restoring it needs a bounded
 #: extractor shared with the identical exposure in ``knowledge/readers.py``.
-_GREP_DOC_EXTS = frozenset({".docx", ".pptx", ".xlsx"})
+_GREP_DOC_EXTS = frozenset({".docx", ".pptx", ".xlsx", ".pdf"})
 #: Largest document the pass will open. Extraction is CPU-bound parsing, so
 #: this is about parse cost, not read cost.
 _GREP_DOC_MAX_BYTES = 25 * 1024 * 1024
@@ -5455,6 +5456,11 @@ def _grep_doc_segments(data: bytes, path: str, ext: str, deadline: float) -> _Do
     coming back longer is the only way to tell a document cut at the cap from one
     that ended there.
     """
+    if ext == ".pdf":
+        segments, whole, _page_count = extract_pdf_segments(
+            data, max_chars=PDF_MAX_CHARS, deadline=deadline
+        )
+        return segments, whole
     if ext == ".xlsx":
         return _grep_xlsx_segments(data, path, deadline)
     text = extract_text(

@@ -12784,6 +12784,7 @@ except OSError:  # pragma: no cover - only if the install is truncated
 RLIMIT_PROFILE_TOOL = "tool"
 RLIMIT_PROFILE_BUILD = "build"
 RLIMIT_PROFILE_SESSION_HOST = "session_host"
+RLIMIT_PROFILE_EXTRACTOR = "extractor"
 # No limits and no OOM bias: the interactive terminal is the user's own shell,
 # not agent-executed code, and never carried either.
 RLIMIT_PROFILE_NONE = "none"
@@ -12796,6 +12797,7 @@ _PROFILE_OOM_BIAS = {
     # NOT bias the OOM score, and a trusted session host should not be the
     # preferred kill target.
     RLIMIT_PROFILE_SESSION_HOST: False,
+    RLIMIT_PROFILE_EXTRACTOR: True,
     RLIMIT_PROFILE_NONE: False,
 }
 
@@ -12827,6 +12829,12 @@ def _rlimit_spec(profile: str) -> str:
         # pipe pairs for a whole tree of MCP servers, and the tool-grade 1024 cap
         # EMFILE-crashed it.
         return "RLIMIT_NOFILE:hard"
+    if profile == RLIMIT_PROFILE_EXTRACTOR:
+        # pdfplumber allocates page.chars before extract_text() returns, so a
+        # caller-side character check cannot bound the allocation. This child is
+        # pure CPython, so a fixed virtual-address ceiling is an appropriate
+        # disposable-process boundary.
+        return "RLIMIT_AS:1073741824,RLIMIT_CPU:60"
 
     cfg: dict | None = None
     try:
@@ -12946,6 +12954,11 @@ def _preexec_for_profile(profile: str) -> "Callable[[], None] | None":
         return session_host_preexec()
     if profile == RLIMIT_PROFILE_BUILD:
         return build_resource_limit_preexec()
+    if profile == RLIMIT_PROFILE_EXTRACTOR:
+        from kiro_crew.security import apply_resource_limits
+        return apply_resource_limits({
+            "resource_limits": {"max_memory_mb": 1024, "max_cpu_seconds": 60}
+        })
     return resource_limit_preexec()
 
 
