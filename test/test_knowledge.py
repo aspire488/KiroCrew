@@ -761,23 +761,15 @@ class TestFileReaderPdf:
         assert meta["format"] == "pdf"
         assert meta["page_count"] == 1
 
-    def test_read_pdf_accepts_bounded_partial_extraction(self, monkeypatch):
-        monkeypatch.setattr(
-            readers,
-            "pdfplumber",
-            object(),
-        )
+    def test_read_pdf_accepts_bounded_partial_extraction(self, monkeypatch, tmp_path):
+        p = tmp_path / "partial.pdf"
+        p.write_bytes(b"%PDF")
         monkeypatch.setattr(
             readers,
             "extract_pdf_segments",
             lambda data, max_chars: ((("page 1", "partial text"),), False, 3),
         )
-        monkeypatch.setattr(
-            readers,
-            "open",
-            lambda *args, **kwargs: __import__("io").BytesIO(b"%PDF"),
-        )
-        text, meta = FileReader()._read_pdf("partial.pdf")
+        text, meta = FileReader()._read_pdf(str(p))
         assert text == "partial text"
         assert meta == {"format": "pdf", "page_count": 3, "truncated": True}
 
