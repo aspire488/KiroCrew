@@ -9,7 +9,6 @@ from kiro_crew.sandbox import RLIMIT_PROFILE_EXTRACTOR, popen_limited
 
 PDF_MAX_BYTES = 25 * 1024 * 1024
 PDF_MAX_CHARS = 400_000
-PDF_MAX_PAGES = 1000
 Segments = tuple[tuple[str, str], ...]
 
 def extract_pdf_segments(data: bytes, *, max_chars: int = PDF_MAX_CHARS, deadline: float | None = None) -> tuple[Segments, bool, int]:
@@ -19,7 +18,7 @@ def extract_pdf_segments(data: bytes, *, max_chars: int = PDF_MAX_CHARS, deadlin
     remaining = None if deadline is None else max(0.01, deadline - time.monotonic())
     try:
         proc = popen_limited(
-            [sys.executable, "-m", "kiro_crew.pdf_extract_child"],
+            [sys.executable, "-P", "-m", "kiro_crew.pdf_extract_child"],
             profile=RLIMIT_PROFILE_EXTRACTOR,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
