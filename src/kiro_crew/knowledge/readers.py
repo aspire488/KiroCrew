@@ -145,11 +145,12 @@ class FileReader:
             segments, complete, page_count = extract_pdf_segments(
                 data, max_chars=PDF_MAX_CHARS
             )
-            if not complete:
-                return _read_error(RuntimeError('bounded PDF extraction failed or was truncated'))
+            if not segments:
+                return _read_error(RuntimeError('bounded PDF extraction failed'))
             return '\n'.join(text for _label, text in segments), {
                 'format': 'pdf',
                 'page_count': page_count,
+                'truncated': not complete,
             }
         except Exception as e:
             return _read_error(e)
