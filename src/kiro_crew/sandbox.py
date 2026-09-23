@@ -12955,6 +12955,12 @@ def _preexec_for_profile(profile: str) -> "Callable[[], None] | None":
     if profile == RLIMIT_PROFILE_BUILD:
         return build_resource_limit_preexec()
     if profile == RLIMIT_PROFILE_EXTRACTOR:
+        # Windows does not support subprocess preexec_fn. The extractor's
+        # resource ceiling is enforced by the child protocol there; returning
+        # None keeps the spawn compatible with Windows while POSIX retains the
+        # existing pre-exec limits.
+        if os.name != "posix":
+            return None
         from kiro_crew.security import apply_resource_limits
         return apply_resource_limits({
             "resource_limits": {"max_memory_mb": 1024, "max_cpu_seconds": 60}
