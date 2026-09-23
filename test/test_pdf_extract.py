@@ -32,3 +32,26 @@ def test_child_result_is_parsed_and_bounded(monkeypatch):
     assert complete is False
     assert pages == 1
     assert proc.inputs == b"%PDF"
+
+
+def test_extractor_child_uses_isolated_python_path(monkeypatch):
+    class Proc:
+        returncode = 0
+        def communicate(self, input=None, timeout=None):
+            return json.dumps({
+                "segments": [],
+                "page_count": 0,
+                "truncated": False,
+            }).encode(), b""
+
+    captured = {}
+
+    def spawn(argv, **kwargs):
+        captured["argv"] = list(argv)
+        return Proc()
+
+    monkeypatch.setattr(pdf_extract, "popen_limited", spawn)
+    pdf_extract.extract_pdf_segments(b"%PDF")
+
+    assert captured["argv"][0] == pdf_extract.sys.executable
+    assert captured["argv"][1:4] == ["-P", "-m", "kiro_crew.pdf_extract_child"]
