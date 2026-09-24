@@ -12605,6 +12605,8 @@ def resource_limit_preexec() -> "Callable[[], None] | None":
             return None
         # Lazy imports: sandbox is a low-level module (see the SEL import note in
         # wrap_argv) and must not import config/security at module load.
+        # Keep the import local: sandbox.py is imported by security.py, so importing
+        # the limiter at module scope would create a circular import during startup.
         from kiro_crew.security import apply_resource_limits
 
         cfg: dict | None = None
